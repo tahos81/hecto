@@ -1,8 +1,11 @@
+use crate::Document;
+use crate::Row;
 use crate::Terminal;
 use termion::event::Key;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[derive(Default)]
 pub struct Position {
     pub x: usize,
     pub y: usize,
@@ -12,6 +15,7 @@ pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
     cursor_position: Position,
+    document: Document,
 }
 
 impl Editor {
@@ -35,13 +39,14 @@ impl Editor {
         Self {
             should_quit: false,
             terminal: Terminal::default().expect("Failed to initialize terminal"),
-            cursor_position: Position { x: 0, y: 0 },
+            document: Document::open(),
+            cursor_position: Position::default(),
         }
     }
 
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         Terminal::cursor_hide();
-        Terminal::cursor_position(&Position { x: 0, y: 0 });
+        Terminal::cursor_position(&Position::default());
         if self.should_quit {
             Terminal::clear_screen();
             println!("Goodbye.\r");
@@ -57,7 +62,14 @@ impl Editor {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
             Key::Ctrl('q') => self.should_quit = true,
-            Key::Up | Key::Down | Key::Left | Key::Right => self.move_cursor(pressed_key),
+            Key::Up
+            | Key::Down
+            | Key::Left
+            | Key::Right
+            | Key::PageUp
+            | Key::PageDown
+            | Key::End
+            | Key::Home => self.move_cursor(pressed_key),
             _ => (),
         }
         Ok(())
@@ -82,6 +94,10 @@ impl Editor {
                     x = x.saturating_add(1);
                 }
             }
+            Key::PageUp => y = 0,
+            Key::PageDown => y = height,
+            Key::Home => x = 0,
+            Key::End => x = width,
             _ => (),
         };
 
